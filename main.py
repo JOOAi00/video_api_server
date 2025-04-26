@@ -1,16 +1,25 @@
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, Request
 from fastapi.responses import RedirectResponse, JSONResponse
 import yt_dlp
 import urllib.parse
 
+# هنا بتحط مفتاحك السري
+API_KEY = "YoussefJoxs07571980@@##"
+
 app = FastAPI()
+
+def verify_key(request: Request):
+    key = request.headers.get("X-API-KEY")
+    if key != API_KEY:
+        raise HTTPException(status_code=403, detail="مفتاح API غلط أو ناقص ❌")
 
 @app.get("/")
 def read_root():
     return {"message": "🔥 API شغالة وجاهزة 🔥"}
 
 @app.get("/info")
-async def get_video_info(url: str = Query(..., description="Video URL")):
+async def get_video_info(request: Request, url: str = Query(..., description="Video URL")):
+    verify_key(request)
     try:
         ydl_opts = {
             'quiet': True,
@@ -30,7 +39,8 @@ async def get_video_info(url: str = Query(..., description="Video URL")):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/download_video")
-async def download_video(url: str = Query(..., description="Video URL")):
+async def download_video(request: Request, url: str = Query(..., description="Video URL")):
+    verify_key(request)
     try:
         ydl_opts = {
             'quiet': True,
@@ -43,7 +53,7 @@ async def download_video(url: str = Query(..., description="Video URL")):
             if not formats:
                 raise HTTPException(status_code=404, detail="No suitable video format found")
 
-            best_format = formats[-1]  # ناخد اعلى جوده متاحه
+            best_format = formats[-1]
             download_url = best_format['url']
 
             return RedirectResponse(url=download_url)
@@ -51,7 +61,8 @@ async def download_video(url: str = Query(..., description="Video URL")):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/download_audio")
-async def download_audio(url: str = Query(..., description="Video URL")):
+async def download_audio(request: Request, url: str = Query(..., description="Video URL")):
+    verify_key(request)
     try:
         ydl_opts = {
             'quiet': True,
