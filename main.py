@@ -1,9 +1,8 @@
 from fastapi import FastAPI, Query, HTTPException, Request
 from fastapi.responses import RedirectResponse, JSONResponse
 import yt_dlp
-import urllib.parse
 
-# هنا بتحط مفتاحك السري
+# مفتاح الحماية
 API_KEY = "YoussefJoxs07571980@@##"
 
 app = FastAPI()
@@ -21,10 +20,7 @@ def read_root():
 async def get_video_info(request: Request, url: str = Query(..., description="Video URL")):
     verify_key(request)
     try:
-        ydl_opts = {
-            'quiet': True,
-            'skip_download': True,
-        }
+        ydl_opts = {'quiet': True, 'skip_download': True}
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             return {
@@ -33,51 +29,64 @@ async def get_video_info(request: Request, url: str = Query(..., description="Vi
                 "duration": f"{info.get('duration') // 60} دقيقة و {info.get('duration') % 60} ثانية",
                 "webpage_url": info.get("webpage_url"),
                 "uploader": info.get("uploader"),
-                "available_formats": [f"{f.get('format_id')} - {f.get('format_note') or ''} - {f.get('ext')}" for f in info.get("formats", []) if f.get("vcodec") != "none"]
+                "available_formats": [
+                    {
+                        "format_id": f.get("format_id"),
+                        "format_note": f.get("format_note") or "",
+                        "ext": f.get("ext"),
+                        "resolution": f.get("resolution") or "",
+                        "filesize": f.get("filesize") or ""
+                    }
+                    for f in info.get("formats", []) if f.get("url")
+                ]
             }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/download_video")
-async def download_video(request: Request, url: str = Query(..., description="Video URL")):
+async def download_video(request: Request, url: str = Query(..., description="Video URL"), format_id: str = Query(None, description="Format ID to download")):
     verify_key(request)
     try:
-        ydl_opts = {
-            'quiet': True,
-            'skip_download': True,
-        }
+        ydl_opts = {'quiet': True, 'skip_download': True}
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-            formats = [f for f in info['formats'] if f.get('vcodec') != 'none' and f.get('acodec') != 'none']
 
-            if not formats:
-                raise HTTPException(status_code=404, detail="No suitable video format found")
+            # لو فيه format_id
+            if format_id:
+                selected_format = next((f for f in info['formats'] if f['format_id'] == format_id), None)
+                if not selected_format:
+                    raise HTTPException(status_code=404, detail="الصيغة المطلوبة مش موجودة ❌")
+            else:
+                # لو مفيش، نختار أعلى جودة افتراضيًا
+                selected_format = next((f for f in reversed(info['formats']) if f.get('vcodec') != 'none' and f.get('acodec') != 'none'), None)
 
-            best_format = formats[-1]
-            download_url = best_format['url']
+            if not selected_format:
+                raise HTTPException(status_code=404, detail="مفيش فيديو مناسب للتحمل ❌")
 
+            download_url = selected_format['url']
             return RedirectResponse(url=download_url)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/download_audio")
-async def download_audio(request: Request, url: str = Query(..., description="Video URL")):
+async def download_audio(request: Request, url: str = Query(..., description="Video URL"), format_id: str = Query(None, description="Format ID to download")):
     verify_key(request)
     try:
-        ydl_opts = {
-            'quiet': True,
-            'skip_download': True,
-        }
+        ydl_opts = {'quiet': True, 'skip_download': True}
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-            formats = [f for f in info['formats'] if f.get('vcodec') == 'none']
 
-            if not formats:
-                raise HTTPException(status_code=404, detail="No suitable audio format found")
+            if format_id:
+                selected_format = next((f for f in info['formats'] if f['format_id'] == format_id), None)
+                if not selected_format:
+                    raise HTTPException(status_code=404, detail="الصيغة الصوتية المطلوبة مش موجودة ❌")
+            else:
+                selected_format = next((f for f in reversed(info['formats']) if f.get('vcodec') == 'none'), None)
 
-            best_audio = formats[-1]
-            download_url = best_audio['url']
+            if not selected_format:
+                raise HTTPException(status_code=404, detail="مفيش صوت مناسب للتحمل ❌")
 
+            download_url = selected_format['url']
             return RedirectResponse(url=download_url)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
