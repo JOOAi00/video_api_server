@@ -1,28 +1,22 @@
-from flask import Flask, request, jsonify
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 import yt_dlp
 
-app = Flask(__name__)
+app = FastAPI()
 
-@app.route('/get_video_info', methods=['POST'])
-def get_video_info():
-    data = request.json
-    url = data.get('url')
+@app.get("/")
+async def root():
+    return JSONResponse(content={"message": "Hello, World from FastAPI!"})
 
-    if not url:
-        return jsonify({'error': 'No URL provided'}), 400
-
+@app.get("/download")
+async def download_video(url: str):
     try:
-        ydl_opts = {}
+        ydl_opts = {
+            'format': 'best',
+            'outtmpl': 'downloads/%(title)s.%(ext)s',
+        }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            return jsonify({
-                'title': info.get('title'),
-                'thumbnail': info.get('thumbnail'),
-                'duration': info.get('duration'),
-                'download_url': info.get('url')
-            })
+            info = ydl.extract_info(url, download=True)
+            return {"title": info.get('title'), "url": url, "status": "Downloaded Successfully"}
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+        return JSONResponse(content={"error": str(e)}, status_code=500)
