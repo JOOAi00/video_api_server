@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Query, HTTPException, Request
 from fastapi.responses import RedirectResponse, JSONResponse
 import yt_dlp
+from config_data import app_config
 
 # مفتاح الحماية
 API_KEY = "YoussefJoxs07571980@@##"
@@ -90,3 +91,9 @@ async def download_audio(request: Request, url: str = Query(..., description="Vi
             return RedirectResponse(url=download_url)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/app_config")
+async def get_app_config(request: Request):
+    verify_key(request)
+    return JSONResponse(content=app_config)
+
